@@ -78,8 +78,7 @@ def register_user():
     request_body = {
         "userType": "CUSTOMER",
         "email": email,
-        "password": password,
-        "emailConfirmCode": "12345",
+        "password": password
     }
 
     headers = {
@@ -92,12 +91,24 @@ def register_user():
         headers=headers
     )
 
-    if response.status_code == 200:
-        response_data = response.json()
-        save_credentials(response_data, email, password)
-        print("User registered successfully!")
+    if response.status_code in (200,201,202):
+        console.print("First request successful, proceeding with email confirmation...", style=success_style)
+
+        request_body["emailConfirmCode"] = "12345"
+        response = requests.post(
+            f"{url}/reg/user",
+            json=request_body,
+            headers=headers
+        )
+
+        if response.status_code in (200,201,202):
+            response_data = response.json()
+            save_credentials(response_data, email, password)
+            console.print("User registered successfully with email confirmation!", style=success_style)
+        else:
+            console.print(f"Error on second request: {response.status_code} - {response.text}", style=error_style)
     else:
-        print(f"Error: {response.status_code} - {response.text}")
+        console.print(f"Error on first request: {response.status_code} - {response.text}", style=error_style)
 
 
 
@@ -105,13 +116,14 @@ def save_credentials(response_data, email, password):
     creds = [
         response_data.get('access_token'),
         response_data.get('refresh_token'),
+        response_data.get('user_id'),
         password,
         email
     ]
 
     with open('user_creds.csv', 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(['Access Token', 'Refresh Token', 'Password', 'Email'])
+        writer.writerow(['user_id','Access Token', 'Refresh Token', 'Password', 'Email'])
         writer.writerow(creds)
 
 
@@ -136,7 +148,7 @@ def create_account():
 
     account_type = Prompt.ask(
         "Enter account type",
-        choices=["CHECKING", "SAVINGS", "BUSINESS"],
+        choices=["CHECKING"],
         default="CHECKING",
         console=console
     )
